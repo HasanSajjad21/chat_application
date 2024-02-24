@@ -1,0 +1,335 @@
+package chatapplication;
+
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.*;
+import java.net.*;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import javax.swing.*;
+
+/**
+ *
+ * @author Lenovo
+ */
+public class Server1 extends javax.swing.JFrame {
+    private ServerSocket serverSocket;
+    private List<ClientHandler> clients = Collections.synchronizedList(new ArrayList<>());
+    private Connection databaseConnection;
+    private boolean isServerRunning = false;
+    private Thread serverThread;
+
+    public Server1() {
+        initComponents();
+        initializeDatabase();
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (isServerRunning) {
+                    stopServer();
+                }
+                e.getWindow().dispose();
+            }
+        });
+    }
+
+    private void initializeDatabase() {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            String url = "jdbc:mysql://localhost:3306/login";
+            String user = "root";
+            String password = ""; // Your database password
+            databaseConnection = DriverManager.getConnection(url, user, password);
+            appendLog("Connected to the database.");
+        } catch (ClassNotFoundException | SQLException e) {
+            appendLog("Database connection failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public synchronized void addClient(ClientHandler clientHandler) {
+        this.clients.add(clientHandler);
+        appendLog("A new client has connected.");
+    }
+
+    public synchronized void removeClient(ClientHandler clientHandler) {
+        this.clients.remove(clientHandler);
+        appendLog(clientHandler.getUsername() + " has disconnected.");
+    }
+
+    public synchronized void broadcastMessage(String message, ClientHandler sender) {
+        for (ClientHandler client : clients) {
+            if (client != sender) {
+                client.sendMessage(message);
+            }
+        }
+    }
+
+    public synchronized void logMessage(String username, String message) {
+        String query = "INSERT INTO message_history (username, message) VALUES (?, ?)";
+        try (PreparedStatement statement = databaseConnection.prepareStatement(query)) {
+            statement.setString(1, username);
+            statement.setString(2, message);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            appendLog("Error logging message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public boolean isValidUser(String username, String password) {
+        String query = "SELECT * FROM users WHERE username = ? AND password = ?";
+        try (PreparedStatement statement = databaseConnection.prepareStatement(query)) {
+            statement.setString(1, username);
+            statement.setString(2, password);
+            ResultSet resultSet = statement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            appendLog("User validation failed: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void startServer() {
+        isServerRunning = true;
+        jLabel1.setText("Status: Running");
+        serverThread = new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(1234);
+                appendLog("Server is running and waiting for connections...");
+                while (!serverSocket.isClosed()) {
+                    Socket clientSocket = serverSocket.accept();
+                    ClientHandler clientHandler = new ClientHandler(clientSocket, this);
+                    addClient(clientHandler);
+                    new Thread(clientHandler).start();
+                }
+            } catch (IOException e) {
+                appendLog("Server stopped.");
+                e.printStackTrace();
+            }
+        });
+        serverThread.start();
+    }
+
+    private void stopServer() {
+        isServerRunning = false;
+        jLabel1.setText("Status: Stopped");
+        try {
+            for (ClientHandler client : clients) {
+                client.closeConnection();
+            }
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+            appendLog("Server has been stopped.");
+        } catch (IOException e) {
+            appendLog("Error stopping server: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void appendLog(String message) {
+        SwingUtilities.invokeLater(() -> jTextArea1.append(message + "\n"));
+    }
+
+    /**
+     * This method is called from within the constructor to initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is always
+     * regenerated by the Form Editor.
+     */
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void initComponents() {
+
+        jButton2 = new javax.swing.JButton();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        jList1 = new javax.swing.JList<>();
+        jButton3 = new javax.swing.JButton();
+        jLabel1 = new javax.swing.JLabel();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        jTextArea1 = new javax.swing.JTextArea();
+
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setBackground(new java.awt.Color(0, 153, 153));
+
+        jButton2.setText("View Message History");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
+
+        jList1.setModel(new javax.swing.AbstractListModel<String>() {
+            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
+            public int getSize() { return strings.length; }
+            public String getElementAt(int i) { return strings[i]; }
+        });
+        jScrollPane2.setViewportView(jList1);
+
+        jButton3.setText("Server On/Off");
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton3ActionPerformed(evt);
+            }
+        });
+
+        jLabel1.setText("Status: Stopped");
+
+        jTextArea1.setColumns(20);
+        jTextArea1.setRows(5);
+        jScrollPane3.setViewportView(jTextArea1);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(21, 21, 21)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 184, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(99, 99, 99)
+                                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 734, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(42, 42, 42)
+                        .addComponent(jButton3)
+                        .addGap(18, 18, 18)
+                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 91, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(0, 20, Short.MAX_VALUE))
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(22, 64, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(0, 0, Short.MAX_VALUE)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                    .addComponent(jButton3)
+                                    .addComponent(jLabel1)))
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jButton2)
+                                .addGap(0, 0, Short.MAX_VALUE)))
+                        .addGap(33, 33, 33))))
+        );
+
+        pack();
+        setLocationRelativeTo(null);
+    }// </editor-fold>//GEN-END:initComponents
+
+    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        if (!isServerRunning) {
+        startServer();
+    } else {
+        stopServer();
+    }
+    }//GEN-LAST:event_jButton3ActionPerformed
+
+
+public synchronized List<String> getMessageHistory() {
+    List<String> history = new ArrayList<>();
+    String query = "SELECT username, message, timestamp FROM message_history ORDER BY timestamp DESC LIMIT 100";
+    try (PreparedStatement statement = databaseConnection.prepareStatement(query)) {
+        ResultSet resultSet = statement.executeQuery();
+        while (resultSet.next()) {
+            String entry = resultSet.getString("timestamp") + " " + resultSet.getString("username") + ": " + resultSet.getString("message");
+            history.add(entry);
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+        // Handle database errors here
+    }
+    return history;
+}
+
+    public synchronized void updateActiveUsersList() {
+    List<String> activeUsers = new ArrayList<>();
+    // Populate the list with usernames of connected clients
+    for (ClientHandler client : clients) {
+        activeUsers.add(client.getUsername());
+    }
+    
+    // Update the JList with the active users
+    jList1.setListData(activeUsers.toArray(new String[0]));
+}
+
+
+    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+    new Thread(() -> {
+        try {
+            List<String> history = getMessageHistory();
+            // Ensure GUI update is done on the EDT
+            SwingUtilities.invokeLater(() -> {
+                jTextArea1.setText(""); // Clear previous content
+                for (String message : history) {
+                    jTextArea1.append(message + "\n");
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Optionally update the GUI with error information
+            SwingUtilities.invokeLater(() -> {
+                jTextArea1.setText("Failed to load message history.");
+            });
+        }
+    }).start();// TODO add your handling code here:
+    }//GEN-LAST:event_jButton2ActionPerformed
+
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String args[]) {
+        /* Set the Nimbus look and feel */
+        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
+        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
+         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
+         */
+        try {
+            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (ClassNotFoundException ex) {
+            java.util.logging.Logger.getLogger(Server1.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (InstantiationException ex) {
+            java.util.logging.Logger.getLogger(Server1.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (IllegalAccessException ex) {
+            java.util.logging.Logger.getLogger(Server1.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+            java.util.logging.Logger.getLogger(Server1.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+        //</editor-fold>
+
+        /* Create and display the form */
+        java.awt.EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                new Server1().setVisible(true);
+            }
+        });
+    }
+
+    // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton jButton2;
+    private javax.swing.JButton jButton3;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JList<String> jList1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JTextArea jTextArea1;
+    // End of variables declaration//GEN-END:variables
+}
